@@ -1,0 +1,8 @@
+opencv-python
+ultralytics
+torch
+fastapi
+uvicorn
+pymongo
+python-dotenv
+websockets

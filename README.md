@@ -124,7 +124,7 @@ python app.py
 
 # Start the dashboard (in a separate terminal)
 cd dashboard
-npm start
+npm run dev
 ```
 
 1. Connect the drone's 5G streaming module to the backend endpoint.
