@@ -34,5 +34,6 @@ class AnomalyDetector:
         return {
             "detections": detections,
             "anomaly_score": highest_score,
-            "is_anomaly": is_anomaly
+            "is_anomaly": is_anomaly,
+            "annotated_frame": results[0].plot()
         }

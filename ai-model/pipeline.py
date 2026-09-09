@@ -1,13 +1,14 @@
 import cv2
 import time
 from inference import AnomalyDetector
+import argparse
 from pathlib import Path
 
 # Configuration
 STREAM_URL = "http://localhost:8001/stream"
 WEIGHTS_PATH = Path("weights/best.pt")
 
-def run_pipeline():
+def run_pipeline(visualize=False):
     print(f"Loading model from {WEIGHTS_PATH}...")
     if not WEIGHTS_PATH.exists():
         print(f"Warning: {WEIGHTS_PATH} not found. Please ensure the weights are downloaded from Colab and placed here.")
@@ -49,6 +50,12 @@ def run_pipeline():
                 print(f"[ALERT] Anomaly Detected! Score: {result['anomaly_score']:.2f} | Detections: {len(result['detections'])} | Inference Latency: {latency:.1f}ms | Geo: {lat}, {lon}")
                 # In Phase 5, we will POST this to the backend API instead of just printing
                 
+            if visualize:
+                cv2.imshow("Live Pipeline - Anomaly Detection", result['annotated_frame'])
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    print("User requested quit.")
+                    break
+                    
             frame_count += 1
             if frame_count % 30 == 0:
                 elapsed = time.time() - start_time_total
@@ -57,6 +64,13 @@ def run_pipeline():
                 
     except KeyboardInterrupt:
         print("Pipeline stopped.")
+    finally:
+        if visualize:
+            cv2.destroyAllWindows()
 
 if __name__ == "__main__":
-    run_pipeline()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--visualize", action="store_true", help="Show the live video feed with bounding boxes")
+    args = parser.parse_args()
+    
+    run_pipeline(args.visualize)
