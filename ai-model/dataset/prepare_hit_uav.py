@@ -12,15 +12,15 @@ from pathlib import Path
 
 
 SPLITS = ("train", "val", "test")
-CLASS_NAMES = ("person", "car", "bicycle", "other_vehicle")
+CLASS_NAMES = ("person", "vehicle")
 CLASS_ALIASES = {
     "person": 0,
     "car": 1,
-    "bicycle": 2,
-    "othervehicle": 3,
-    "othervechicle": 3,
-    "other vehicle": 3,
-    "other_vehicle": 3,
+    "bicycle": 1,
+    "othervehicle": 1,
+    "othervechicle": 1,
+    "other vehicle": 1,
+    "other_vehicle": 1,
 }
 
 
