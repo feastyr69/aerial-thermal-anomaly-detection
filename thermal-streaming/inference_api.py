@@ -13,7 +13,6 @@ from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from starlette.background import BackgroundTask
-from starlette.concurrency import run_in_threadpool
 from ultralytics import YOLO
 
 
@@ -26,7 +25,7 @@ async def lifespan(application: FastAPI):
     application.state.model = None
     application.state.model_error = None
     try:
-        application.state.model = await run_in_threadpool(_load_model)
+        application.state.model = _load_model()
     except Exception as error:
         application.state.model_error = str(error)
     yield
@@ -161,12 +160,11 @@ async def infer_video(
             raise HTTPException(status_code=503, detail=detail)
 
         with input_path.open("wb") as destination:
-            while chunk := await video.read(1024 * 1024):
-                destination.write(chunk)
+            shutil.copyfileobj(video.file, destination, length=1024 * 1024)
         if input_path.stat().st_size == 0:
             raise HTTPException(status_code=400, detail="The selected video is empty.")
 
-        await run_in_threadpool(_process_video, model, input_path, intermediate_path, output_path, confidence)
+        _process_video(model, input_path, intermediate_path, output_path, confidence)
         return FileResponse(
             output_path,
             media_type="video/mp4",
@@ -186,7 +184,7 @@ async def infer_video(
         shutil.rmtree(work_dir, ignore_errors=True)
         raise HTTPException(status_code=500, detail=str(error)) from error
     finally:
-        await video.close()
+        video.file.close()
 
 
 if __name__ == "__main__":

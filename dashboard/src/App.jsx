@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import './App.css'
 
-const API_URL = 'http://127.0.0.1:8002'
+const API_URL = import.meta.env.VITE_API_URL || ''
 
 function App() {
   const [videoFile, setVideoFile] = useState(null)
@@ -17,6 +17,7 @@ function App() {
     let active = true
 
     async function checkApi() {
+      if (processing) return
       try {
         const response = await fetch(`${API_URL}/api/health`)
         const health = await response.json()
@@ -31,19 +32,23 @@ function App() {
         if (active) {
           setApiStatus('offline')
           setApiMessage(healthError.message === 'Failed to fetch'
-            ? 'Inference API unavailable. Activate .venv and run: python thermal-streaming/inference_api.py'
+            ? 'Cannot reach the inference API. Confirm it is running, then restart the dashboard dev server.'
             : healthError.message)
         }
       }
     }
 
     checkApi()
+    if (processing) return () => {
+      active = false
+    }
+
     const timer = window.setInterval(checkApi, 5000)
     return () => {
       active = false
       window.clearInterval(timer)
     }
-  }, [])
+  }, [processing])
 
   useEffect(() => {
     if (!videoFile) {

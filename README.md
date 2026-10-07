@@ -104,11 +104,14 @@ flowchart LR
 git clone https://github.com/<your-username>/<repo-name>.git
 cd <repo-name>
 
-# Create and activate a virtual environment
-python -m venv venv
-source venv/bin/activate      # On Windows: venv\Scripts\activate
+# Create and activate a Python 3.11 virtual environment
+python3.11 -m venv .venv
+source .venv/bin/activate      # On Windows: .venv\Scripts\activate
 
-# Install backend dependencies
+# Install CPU-only PyTorch for local inference without an NVIDIA GPU
+python -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+
+# Install the remaining backend dependencies
 pip install -r requirements.txt
 
 # (Optional) Install frontend dependencies
@@ -119,7 +122,7 @@ npm install
 ## 🚀 Usage
 
 ```bash
-# Start the local YOLO video inference API from the repository root
+# Activate .venv first, then start the local YOLO video inference API
 python thermal-streaming/inference_api.py
 
 # Start the browser dashboard in a second terminal
