@@ -1,12 +1,13 @@
 import os
 import cv2
 import glob
+import argparse
 from pathlib import Path
 
 # Config
 DATASET_DIR = Path(__file__).parent
-PROCESSED_DIR = DATASET_DIR / "processed"
-YOLO_CLASSES = {0: "person", 1: "car", 2: "bicycle"}
+PROCESSED_DIR = DATASET_DIR / "processed_hit_uav"
+YOLO_CLASSES = {0: "person", 1: "car", 2: "bicycle", 3: "other_vehicle"}
 
 def print_stats(split):
     label_dir = PROCESSED_DIR / split / "labels"
@@ -23,7 +24,7 @@ def print_stats(split):
     print(f"Total images: {len(image_files)}")
     print(f"Total labeled images: {len(label_files)}")
     
-    class_counts = {0: 0, 1: 0, 2: 0}
+    class_counts = {class_id: 0 for class_id in YOLO_CLASSES}
     total_boxes = 0
     
     for lf in label_files:
@@ -87,6 +88,15 @@ def visualize_sample(split, num_samples=3):
         print(f"Saved {out_path}")
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Summarize a prepared YOLO dataset")
+    parser.add_argument(
+        "--processed-dir",
+        type=Path,
+        default=PROCESSED_DIR,
+        help="Prepared dataset directory (default: processed_hit_uav; use processed for FLIR)",
+    )
+    args = parser.parse_args()
+    PROCESSED_DIR = args.processed_dir
     print_stats("train")
     print_stats("val")
     visualize_sample("train")

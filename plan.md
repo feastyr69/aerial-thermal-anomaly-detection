@@ -1,7 +1,7 @@
 # Implementation Plan — Software-Only Phase
 ## Drone-Based Thermal Anomaly Detection System (5G-Enabled)
 
-This plan covers building and validating the **software stack only** — no physical drone, thermal camera, or 5G hardware required yet. Real thermal footage (FLIR ADAS dataset) and locally stored/looped video files stand in for the live drone feed. Once the pipeline works end-to-end on mock data, swapping the mock stream for a real 5G/RTSP drone feed is a drop-in change (Phase 7 covers that transition).
+This plan covers building and validating the **software stack only** — no physical drone, thermal camera, or 5G hardware required yet. HIT-UAV is the primary aerial thermal object-detection dataset; retain the existing FLIR ADAS model as a ground-view baseline. Locally stored/looped video files stand in for the live drone feed. Once the pipeline works end-to-end on mock data, swapping the mock stream for a real 5G/RTSP drone feed is a drop-in change (Phase 8 covers that transition).
 
 **Guiding principle:** build the system around a *stream source interface*. Whether frames come from an mp4 file on disk, a webcam, or an actual drone's RTSP feed, the rest of the pipeline (AI engine → alerts → dashboard) never needs to know the difference. This is what makes the mock-first approach safe to build on top of later.
 
@@ -21,17 +21,14 @@ This plan covers building and validating the **software stack only** — no phys
 ---
 
 ## Phase 1 — Dataset Acquisition & Preprocessing
-**Goal:** FLIR ADAS dataset downloaded, understood, and converted into a training-ready format.
+**Goal:** HIT-UAV downloaded, understood, and converted into a training-ready format while retaining the FLIR checkpoint.
 
-- [ ] Download FLIR ADAS (Free/Reflex or ADAS v2, whichever license you have access to)
-- [ ] Explore folder structure — thermal 8-bit/16-bit images, paired annotations (COCO-style JSON or YOLO txt depending on version)
-- [ ] Write `ai-model/dataset/prepare_dataset.py`:
-  - Convert annotations to YOLO format if not already (`class x_center y_center w h`, normalized)
-  - Split into train/val/test (e.g. 80/10/10)
-  - Filter to the classes relevant to border security: `person`, `car`, `bicycle` (drop irrelevant classes like `dog`, `traffic light` if present)
+- [ ] Download the authors' HIT-UAV v1.2.1 package or a matching Kaggle copy
+- [ ] Use the standard COCO boxes and provided train/val/test splits
+- [ ] Run `ai-model/dataset/prepare_hit_uav.py` to convert boxes to YOLO labels, keeping `person`, `car`, `bicycle`, and `other_vehicle`; exclude `DontCare`
 - [ ] Basic dataset stats notebook: class balance, image resolution, sample visualizations with bounding boxes drawn
 
-**Deliverable:** `ai-model/dataset/{train,val,test}/{images,labels}` ready for YOLO training + a stats report.
+**Deliverable:** `ai-model/dataset/processed_hit_uav/{train,val,test}/{images,labels}` and `hit_uav.yaml` ready for YOLO training + a stats report.
 
 ---
 
@@ -53,9 +50,9 @@ This plan covers building and validating the **software stack only** — no phys
 **Goal:** Two complementary detectors, matching the README's approach.
 
 ### 3a. Supervised detector (YOLOv8 fine-tune)
-- [ ] Fine-tune YOLOv8n/s on the prepared FLIR ADAS data (`ai-model/train.py`)
+- [ ] Train YOLOv8n on prepared HIT-UAV data in `ai-model/train_yolov8_colab.ipynb`; preserve FLIR weights separately
 - [ ] Track experiments (simple CSV/W&B) — mAP@0.5, precision/recall per class
-- [ ] Export best checkpoint to `ai-model/weights/best.pt`
+- [ ] Export best checkpoint to `ai-model/weights/hit_uav_best.pt`, preserving any FLIR checkpoint at `best.pt`
 
 ### 3b. Unsupervised anomaly detector (autoencoder)
 - [ ] Train a convolutional autoencoder on "normal" thermal frames only (empty scenes, routine patterns)
@@ -113,7 +110,7 @@ This plan covers building and validating the **software stack only** — no phys
 ## Phase 7 — Evaluation on Mock Data
 **Goal:** Fill in the README's Results table with real numbers, using mock data as the testbed.
 
-- [ ] Run YOLO eval on held-out FLIR ADAS test split → Detection Accuracy / mAP, per-class precision-recall
+- [ ] Run YOLO eval on held-out HIT-UAV test split → mAP and per-class precision/recall; inspect the FLIR checkpoint on the same imagery as a qualitative transfer baseline
 - [ ] Run the full pipeline against a curated set of mock videos (including the synthetic-anomaly clips from Phase 2) → measure False Positive Rate and False Negative Rate end-to-end (not just at the model level)
 - [ ] Measure Average Latency: frame capture → inference → alert appears on dashboard, using the `--simulate-latency` flag from Phase 2 to test under different simulated network conditions (e.g. 20ms, 100ms, 300ms)
 - [ ] Write up results, update README's Results table
@@ -147,7 +144,11 @@ This plan covers building and validating the **software stack only** — no phys
 
 Phases 3 and 6 can run in parallel if you have more than one person (one on ML, one on backend/frontend).
 
-## Notes on Using FLIR ADAS Specifically
+## Notes on HIT-UAV and FLIR ADAS
+
+- HIT-UAV contains 2,898 aerial thermal images across day/night, 60–130 m altitudes, and 30–90 degree camera perspectives. Its scenes are public places such as schools, roads, parking lots, and playgrounds, not border scenes; document this limit in results.
+- HIT-UAV's labels train an object detector, not a border-intrusion classifier. Border-specific behavior requires representative data and/or temporal rules evaluated separately.
+- Keep FLIR metrics separate and use its checkpoint only as a transfer reference on HIT-UAV imagery.
 
 - Confirm which FLIR ADAS release you have (v1 "Free" vs v2 "ADAS") — annotation format and class list differ slightly between them.
 - FLIR images are often 8-bit AGC-processed JPEGs rather than raw 16-bit radiometric data; if you want raw thermal values for the autoencoder's reconstruction-error approach, check whether the raw TIFF/radiometric files are included in your download, since AGC-processed images compress the temperature range and can hide subtle heat-signature anomalies.

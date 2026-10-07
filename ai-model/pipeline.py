@@ -6,7 +6,7 @@ from pathlib import Path
 
 # Configuration
 STREAM_URL = "http://localhost:8001/stream"
-WEIGHTS_PATH = Path("weights/best.pt")
+WEIGHTS_PATH = Path(__file__).resolve().parent / "weights" / "uavbest.pt"
 
 def run_pipeline(visualize=False):
     print(f"Loading model from {WEIGHTS_PATH}...")

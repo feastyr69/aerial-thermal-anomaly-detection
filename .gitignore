@@ -6,7 +6,9 @@ node_modules/
 dist/
 ai-model/weights/
 ai-model/dataset/raw_flir/
+ai-model/dataset/raw_hit_uav/
 ai-model/dataset/processed/
+ai-model/dataset/processed_hit_uav/
 ai-model/dataset/sample_visualizations/
 thermal-streaming/sample_videos/mock_thermal.mp4
 *.jpg

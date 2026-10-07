@@ -119,18 +119,15 @@ npm install
 ## 🚀 Usage
 
 ```bash
-# Start the anomaly detection backend
-python app.py
+# Start the local YOLO video inference API from the repository root
+python thermal-streaming/inference_api.py
 
-# Start the dashboard (in a separate terminal)
+# Start the browser dashboard in a second terminal
 cd dashboard
 npm run dev
 ```
 
-1. Connect the drone's 5G streaming module to the backend endpoint.
-2. The AI engine processes the incoming thermal feed frame-by-frame.
-3. Detected anomalies are logged and pushed to the live dashboard.
-4. Alerts are sent to configured notification channels.
+Open the Vite URL (usually `http://localhost:5173`), choose a local video, adjust the confidence threshold if needed, and run inference. The browser displays the original clip and annotated MP4 side by side. The API uses `ai-model/weights/uavbest.pt` and FFmpeg; install FFmpeg if it is not already available on your system.
 
 ## 📁 Project Structure
 
@@ -149,8 +146,10 @@ npm run dev
 
 ## 📊 Dataset
 
-- Thermal image/video dataset used for training the anomaly detection model (e.g., public thermal datasets like **FLIR ADAS**, **OSU Thermal Pedestrian Dataset**, or a custom-collected dataset).
-- Preprocessing: frame extraction, normalization, and annotation for supervised/unsupervised training.
+- Use **HIT-UAV** as the primary aerial thermal object-detection dataset, with its official train/validation/test splits and standard bounding boxes. The target classes are person, car, bicycle, and other vehicle; `DontCare` annotations are excluded.
+- **FLIR ADAS** remains a ground-view baseline. Its camera perspective differs from drone imagery, so report its results separately from HIT-UAV results.
+- The detector identifies labeled objects. Border-specific anomaly decisions require additional border-context data or temporal logic; HIT-UAV's object labels do not provide them directly.
+- Cite Suo et al., [HIT-UAV, *Scientific Data* 10, 227 (2023)](https://doi.org/10.1038/s41597-023-02066-6), when reporting results.
 
 
 ## 🧠 Anomaly Detection Approach

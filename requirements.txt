@@ -3,6 +3,7 @@ ultralytics
 torch
 fastapi
 uvicorn
+python-multipart
 pymongo
 python-dotenv
 websockets
