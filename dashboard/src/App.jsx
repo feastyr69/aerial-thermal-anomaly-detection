@@ -1,17 +1,94 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import './App.css'
 
 const API_URL = import.meta.env.VITE_API_URL || ''
+const HEADER_END = new Uint8Array([13, 10, 13, 10])
+
+function findBytes(buffer, target) {
+  outer: for (let start = 0; start <= buffer.length - target.length; start += 1) {
+    for (let offset = 0; offset < target.length; offset += 1) {
+      if (buffer[start + offset] !== target[offset]) continue outer
+    }
+    return start
+  }
+  return -1
+}
+
+function appendBytes(left, right) {
+  const joined = new Uint8Array(left.length + right.length)
+  joined.set(left)
+  joined.set(right, left.length)
+  return joined
+}
+
+async function readLiveFrames(response, onFrame) {
+  if (!response.body) throw new Error('The browser cannot read the inference stream.')
+
+  const reader = response.body.getReader()
+  let buffer = new Uint8Array()
+  try {
+    while (true) {
+      const { value, done } = await reader.read()
+      if (value?.length) buffer = appendBytes(buffer, value)
+
+      while (true) {
+        const headerEnd = findBytes(buffer, HEADER_END)
+        if (headerEnd < 0) break
+
+        const headers = new TextDecoder().decode(buffer.subarray(0, headerEnd))
+        const contentLength = Number(headers.match(/content-length:\s*(\d+)/i)?.[1])
+        if (!Number.isInteger(contentLength) || contentLength < 0) {
+          throw new Error('The inference stream returned an invalid frame header.')
+        }
+
+        const frameStart = headerEnd + HEADER_END.length
+        const frameEnd = frameStart + contentLength
+        if (buffer.length < frameEnd + 2) break
+
+        onFrame(buffer.slice(frameStart, frameEnd))
+        buffer = buffer.slice(frameEnd + 2)
+      }
+
+      if (done) break
+    }
+  } catch (error) {
+    await reader.cancel()
+    throw error
+  } finally {
+    reader.releaseLock()
+  }
+}
 
 function App() {
   const [videoFile, setVideoFile] = useState(null)
   const [sourceUrl, setSourceUrl] = useState('')
   const [resultUrl, setResultUrl] = useState('')
+  const [liveFrameUrl, setLiveFrameUrl] = useState('')
+  const [frameCount, setFrameCount] = useState(0)
   const [confidence, setConfidence] = useState(0.25)
   const [processing, setProcessing] = useState(false)
   const [error, setError] = useState('')
   const [apiStatus, setApiStatus] = useState('checking')
   const [apiMessage, setApiMessage] = useState('Checking inference API…')
+  const liveFrameUrlRef = useRef('')
+
+  function showLiveFrame(frameBytes) {
+    const nextUrl = URL.createObjectURL(new Blob([frameBytes], { type: 'image/jpeg' }))
+    if (liveFrameUrlRef.current) URL.revokeObjectURL(liveFrameUrlRef.current)
+    liveFrameUrlRef.current = nextUrl
+    setLiveFrameUrl(nextUrl)
+    setFrameCount((count) => count + 1)
+  }
+
+  function clearLiveFrame() {
+    if (liveFrameUrlRef.current) URL.revokeObjectURL(liveFrameUrlRef.current)
+    liveFrameUrlRef.current = ''
+    setLiveFrameUrl('')
+  }
+
+  useEffect(() => () => {
+    if (liveFrameUrlRef.current) URL.revokeObjectURL(liveFrameUrlRef.current)
+  }, [])
 
   useEffect(() => {
     let active = true
@@ -68,6 +145,8 @@ function App() {
   function selectVideo(event) {
     setVideoFile(event.target.files?.[0] ?? null)
     setResultUrl('')
+    clearLiveFrame()
+    setFrameCount(0)
     setError('')
   }
 
@@ -78,6 +157,8 @@ function App() {
     setProcessing(true)
     setError('')
     setResultUrl('')
+    clearLiveFrame()
+    setFrameCount(0)
 
     const form = new FormData()
     form.append('video', videoFile)
@@ -96,8 +177,26 @@ function App() {
         throw new Error(message)
       }
 
-      const resultBlob = await response.blob()
+      const inferenceId = response.headers.get('X-Inference-ID')
+      if (!inferenceId) throw new Error('The inference API did not return an inference ID.')
+
+      await readLiveFrames(response, showLiveFrame)
+
+      const resultResponse = await fetch(`${API_URL}/api/infer/${inferenceId}/result`)
+      if (!resultResponse.ok) {
+        let message = `Could not load the completed result (${resultResponse.status})`
+        try {
+          const payload = await resultResponse.json()
+          message = payload.detail || message
+        } catch {
+          // Keep the status message if the server did not return JSON.
+        }
+        throw new Error(message)
+      }
+
+      const resultBlob = await resultResponse.blob()
       setResultUrl(URL.createObjectURL(resultBlob))
+      clearLiveFrame()
     } catch (requestError) {
       setError(requestError.message || 'Could not reach the inference API.')
     } finally {
@@ -158,7 +257,13 @@ function App() {
 
       <section className="comparison" aria-label="Video comparison">
         <VideoPanel title="SOURCE VIDEO" status={videoFile ? 'INPUT' : 'AWAITING VIDEO'} src={sourceUrl} />
-        <VideoPanel title="YOLO INFERENCE" status={resultUrl ? 'ANNOTATED OUTPUT' : processing ? 'PROCESSING' : 'OUTPUT'} src={resultUrl} processing={processing} />
+        <VideoPanel
+          title="YOLO INFERENCE"
+          status={resultUrl ? 'ANNOTATED OUTPUT' : processing ? `LIVE · ${frameCount} FRAMES` : liveFrameUrl ? 'LAST LIVE FRAME' : 'OUTPUT'}
+          src={resultUrl}
+          liveFrameUrl={liveFrameUrl}
+          processing={processing}
+        />
       </section>
 
       <footer className="footer-note">
@@ -169,7 +274,7 @@ function App() {
   )
 }
 
-function VideoPanel({ title, status, src, processing = false }) {
+function VideoPanel({ title, status, src, liveFrameUrl = '', processing = false }) {
   return (
     <article className="video-panel">
       <div className="panel-heading">
@@ -179,6 +284,8 @@ function VideoPanel({ title, status, src, processing = false }) {
       <div className="video-stage">
         {src ? (
           <video src={src} controls playsInline preload="metadata" />
+        ) : liveFrameUrl ? (
+          <img className="live-frame" src={liveFrameUrl} alt="Latest YOLO annotated frame" />
         ) : (
           <div className="empty-stage">
             {processing ? <span className="large-spinner" /> : <span className="play-symbol" aria-hidden="true">▶</span>}
