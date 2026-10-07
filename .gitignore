@@ -13,4 +13,6 @@ thermal-streaming/sample_videos/mock_thermal.mp4
 *.jpeg
 *.mp4
 *.zip
+*.png
+*.avi
 .DS_Store
