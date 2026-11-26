@@ -3,7 +3,7 @@ from ultralytics import YOLO
 class AnomalyDetector:
     def __init__(self, weights_path):
         self.model = YOLO(weights_path)
-        # HIT-UAV checkpoint order: person, car, bicycle, other_vehicle.
+        # Active checkpoint classes: person, vehicle.
         
     def analyze_frame(self, frame, conf_threshold=0.5):
         # Run YOLO inference

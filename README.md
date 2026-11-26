@@ -130,7 +130,7 @@ cd dashboard
 npm run dev
 ```
 
-Open the Vite URL (usually `http://localhost:5173`), choose a local video, adjust the confidence threshold if needed, and run inference. The browser displays the original clip and annotated MP4 side by side. The API uses `ai-model/weights/uavbest.pt` and FFmpeg; install FFmpeg if it is not already available on your system.
+Open the Vite URL (usually `http://localhost:5173`), choose a local video, adjust the confidence threshold if needed, and run inference. The browser displays the original clip and annotated MP4 side by side. The API uses `ai-model/weights/best2_compatible.pt` and FFmpeg; install FFmpeg if it is not already available on your system.
 
 ## 📁 Project Structure
 
@@ -149,10 +149,11 @@ Open the Vite URL (usually `http://localhost:5173`), choose a local video, adjus
 
 ## 📊 Dataset
 
-- Use **HIT-UAV** as the primary aerial thermal object-detection dataset, with its official train/validation/test splits and standard bounding boxes. The target classes are person, car, bicycle, and other vehicle; `DontCare` annotations are excluded.
-- **FLIR ADAS** remains a ground-view baseline. Its camera perspective differs from drone imagery, so report its results separately from HIT-UAV results.
-- The detector identifies labeled objects. Border-specific anomaly decisions require additional border-context data or temporal logic; HIT-UAV's object labels do not provide them directly.
-- Cite Suo et al., [HIT-UAV, *Scientific Data* 10, 227 (2023)](https://doi.org/10.1038/s41597-023-02066-6), when reporting results.
+- **HIT-UAV** supplies aerial thermal imagery with official train/validation/test splits and object bounding boxes. In the HIT-UAV-only run, the evaluated labels were person, car, and bicycle; the `other_vehicle` category had few labeled instances. `DontCare` annotations were excluded.
+- **AIResQ** was added as a higher-quality search-and-rescue dataset. The combined training setup maps labels to `person` and `vehicle`; HIT-UAV car/bicycle/other-vehicle categories are combined as `vehicle`. AIResQ annotations available for this run were person-only, so its missing vehicle labels must be treated as unlabeled during training and excluded from vehicle performance interpretation.
+- **FLIR ADAS** was used in earlier experiments as a ground-view thermal dataset. Its camera perspective differs from aerial imagery, so report FLIR results separately.
+- These datasets support object detection, not a validated border-anomaly decision. That requires additional operational context, data, or temporal logic.
+- Cite Suo et al., [HIT-UAV, *Scientific Data* 10, 227 (2023)](https://doi.org/10.1038/s41597-023-02066-6), and the [AIResQ dataset record](https://zenodo.org/records/19677785) when describing the datasets.
 
 
 ## 🧠 Anomaly Detection Approach
@@ -163,13 +164,25 @@ Open the Vite URL (usually `http://localhost:5173`), choose a local video, adjus
 
 ## 📈 Results
 
-| Metric | Value |
-|---|---|
-| Detection Accuracy | TBD |
-| False Positive Rate | TBD |
-| Average Latency (5G stream to alert) | TBD |
+### Evaluation results
 
-Add sample thermal frames, detection screenshots, or a demo video/GIF here.
+The following are the reported Ultralytics validation metrics from two runs. The HIT-UAV-only evaluation covers 1,366 images and 11,679 instances. The combined HIT-UAV + AIResQ evaluation covers 571 images and 4,780 instances on the reported test split. These are separate evaluations with different data distributions and split sizes; they should not be interpreted as a controlled before/after comparison unless the same held-out images and evaluation configuration were used.
+
+| Dataset / run | Class | Images | Instances | Precision | Recall | mAP@0.50 | mAP@0.50:0.95 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| HIT-UAV only | All | 1,366 | 11,679 | 0.774 | 0.664 | 0.761 | 0.413 |
+| HIT-UAV only | Person | 1,206 | 5,778 | 0.825 | 0.692 | 0.814 | 0.421 |
+| HIT-UAV only | Car | 1,292 | 5,431 | 0.835 | 0.829 | 0.893 | 0.592 |
+| HIT-UAV only | Bicycle | 338 | 470 | 0.660 | 0.472 | 0.577 | 0.226 |
+| HIT-UAV + AIResQ | All | 571 | 4,780 | 0.857 | 0.834 | 0.871 | 0.575 |
+| HIT-UAV + AIResQ | Person | 355 | 2,611 | 0.860 | 0.890 | 0.913 | 0.477 |
+| HIT-UAV + AIResQ | Car | 267 | 1,339 | 0.909 | 0.963 | 0.980 | 0.720 |
+| HIT-UAV + AIResQ | Bicycle | 86 | 796 | 0.896 | 0.835 | 0.909 | 0.568 |
+| HIT-UAV + AIResQ | Other vehicle | 21 | 34 | 0.761 | 0.647 | 0.681 | 0.534 |
+
+**Metric definitions:** Precision (P) is the fraction of predicted detections that match a labeled object; recall (R) is the fraction of labeled objects detected; mAP@0.50 averages class average precision at IoU 0.50; mAP@0.50:0.95 averages over IoU thresholds 0.50 through 0.95. Values are copied from the run summaries shown above and rounded to three decimal places.
+
+**Interpretation limits:** The combined run reports the original HIT-UAV class names, while the refined training plan uses `person` and `vehicle` with vehicle subtypes merged. Preserve each run's actual label mapping when preparing the report. AIResQ is person-only labeled in the current setup, so do not infer AIResQ vehicle accuracy from these metrics. The displayed output does not establish statistical significance, real-world border performance, or 5G end-to-end alert latency. Include checkpoint, Ultralytics version, image size, confidence/IoU settings, and exact split provenance in the final report if available.
 
 ## 🔮 Future Scope
 

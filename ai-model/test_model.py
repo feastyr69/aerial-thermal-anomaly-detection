@@ -3,7 +3,7 @@ import argparse
 from pathlib import Path
 from ultralytics import YOLO
 
-DEFAULT_WEIGHTS = Path(__file__).resolve().parent / "weights" / "uavbest.pt"
+DEFAULT_WEIGHTS = Path(__file__).resolve().parent / "weights" / "best2_compatible.pt"
 
 def test_model(image_path, weights_path=DEFAULT_WEIGHTS, output_path="inference_result.jpg", show=False):
     print(f"Loading model from {weights_path}...")

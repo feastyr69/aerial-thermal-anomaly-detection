@@ -19,7 +19,7 @@ from ultralytics import YOLO
 
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
-WEIGHTS_PATH = ROOT_DIR / "ai-model" / "weights" / "uavbest.pt"
+WEIGHTS_PATH = ROOT_DIR / "ai-model" / "weights" / "best2_compatible.pt"
 ALLOWED_EXTENSIONS = {".avi", ".m4v", ".mkv", ".mov", ".mp4", ".webm"}
 
 @asynccontextmanager
